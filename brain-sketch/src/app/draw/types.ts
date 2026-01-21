@@ -6,7 +6,8 @@ export type Tool =
   | "rect"
   | "circle"
   | "triangle"
-  | "arrow";
+  | "arrow"
+  |"eraser"
 
 export interface Point {
   x: number;
@@ -74,6 +75,12 @@ export interface ArrowShape extends BaseShape {
   y2: number;
   headLength?: number; // optional customization
 }
+export type EraserShape = {
+  type: "eraser";
+  points: Point[];
+  strokeWidth: number;
+};
+
 
 /* ---------------- UNION ---------------- */
 
@@ -83,4 +90,5 @@ export type Shape =
   | RectShape
   | CircleShape
   | TriangleShape
-  | ArrowShape;
+  | ArrowShape
+  |EraserShape;

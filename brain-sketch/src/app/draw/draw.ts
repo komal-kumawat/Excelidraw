@@ -20,6 +20,20 @@ export function drawShapes(
       ctx.stroke();
     }
 
+    /* ---------------- ERASER ---------------- */
+    if (shape.type === "eraser") {
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+
+      ctx.beginPath();
+      shape.points.forEach((p, i) =>
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
+      );
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
     /* ---------------- LINE ---------------- */
     if (shape.type === "line") {
       ctx.beginPath();
