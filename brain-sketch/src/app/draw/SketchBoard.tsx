@@ -1,189 +1,140 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Shape, Tool } from "./types";
+import { Shape, Tool, Point } from "./types";
 import { drawShapes } from "./draw";
 import Toolbar from "./Toolbar";
+
+const BG = "#020617";
+const STROKE = "#ffffff";
 
 export default function SketchBoard() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [tool, setTool] = useState<Tool>("pen");
   const [shapes, setShapes] = useState<Shape[]>([]);
+  const [currentShape, setCurrentShape] = useState<Shape | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  // ✅ SSR-safe canvas size
-  const [canvasSize, setCanvasSize] = useState({
-    width: 0,
-    height: 0,
-  });
+  const start = useRef<Point | null>(null);
+  const penPoints = useRef<Point[]>([]);
 
-  const startPoint = useRef<{ x: number; y: number } | null>(null);
-  const penPoints = useRef<{ x: number; y: number }[]>([]);
-
-  // 🎨 Dark mode constants
-  const BACKGROUND_COLOR = "#0f172a"; // slate-900
-  const STROKE_COLOR = "#ffffff";     // white
-
-  // ✅ Set canvas size (client only)
   useEffect(() => {
-    const setSize = () => {
-      setCanvasSize({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-    };
+    const canvas = canvasRef.current!;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-    setSize();
-    window.addEventListener("resize", setSize);
-    return () => window.removeEventListener("resize", setSize);
-  }, []);
-
-  // ✅ Single source of rendering truth
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // 1️⃣ Clear
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 2️⃣ Background
-    ctx.fillStyle = BACKGROUND_COLOR;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = BG;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 3️⃣ Shapes
-    drawShapes(ctx, shapes);
-  }, [shapes, canvasSize]);
+    drawShapes(ctx, currentShape ? [...shapes, currentShape] : shapes);
+  }, [shapes, currentShape]);
 
-  const getPos = (e: React.MouseEvent) => ({
+  const pos = (e: React.MouseEvent): Point => ({
     x: e.nativeEvent.offsetX,
     y: e.nativeEvent.offsetY,
   });
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const down = (e: React.MouseEvent) => {
     setIsDrawing(true);
-    const pos = getPos(e);
-    startPoint.current = pos;
+    start.current = pos(e);
+    if (tool === "pen") penPoints.current = [start.current];
+  };
+
+  const move = (e: React.MouseEvent) => {
+    if (!isDrawing || !start.current) return;
+    const p = pos(e);
 
     if (tool === "pen") {
-      penPoints.current = [pos];
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDrawing || tool !== "pen") return;
-
-    penPoints.current.push(getPos(e));
-
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-
-    // Live preview
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.fillStyle = BACKGROUND_COLOR;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-    drawShapes(ctx, [
-      ...shapes,
-      {
-        id: "temp",
+      penPoints.current.push(p);
+      setCurrentShape({
+        id: "tmp",
         type: "pen",
-        points: penPoints.current,
-        stroke: STROKE_COLOR,
+        points: [...penPoints.current],
+        stroke: STROKE,
         strokeWidth: 2,
-      },
-    ]);
-  };
-
- const handleMouseUp = (e: React.MouseEvent) => {
-  if (!isDrawing) return;
-
-  // ✅ PEN: commit directly
-  if (tool === "pen") {
-    if (penPoints.current.length > 1) {
-      setShapes((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          type: "pen",
-          points: penPoints.current,
-          stroke: STROKE_COLOR,
-          strokeWidth: 2,
-        },
-      ]);
+      });
     }
 
+    if (tool === "line" || tool === "arrow") {
+      setCurrentShape({
+        id: "tmp",
+        type: tool,
+        x1: start.current.x,
+        y1: start.current.y,
+        x2: p.x,
+        y2: p.y,
+        stroke: STROKE,
+        strokeWidth: 2,
+      });
+    }
+
+    if (tool === "rect") {
+      setCurrentShape({
+        id: "tmp",
+        type: "rect",
+        x: start.current.x,
+        y: start.current.y,
+        width: p.x - start.current.x,
+        height: p.y - start.current.y,
+        stroke: STROKE,
+        strokeWidth: 2,
+      });
+    }
+
+    if (tool === "circle") {
+      const r = Math.hypot(p.x - start.current.x, p.y - start.current.y);
+      setCurrentShape({
+        id: "tmp",
+        type: "circle",
+        cx: start.current.x,
+        cy: start.current.y,
+        r,
+        stroke: STROKE,
+        strokeWidth: 2,
+      });
+    }
+
+    if (tool === "triangle") {
+      setCurrentShape({
+        id: "tmp",
+        type: "triangle",
+        p1: start.current,
+        p2: { x: p.x, y: p.y },
+        p3: { x: start.current.x * 2 - p.x, y: p.y },
+        stroke: STROKE,
+        strokeWidth: 2,
+      });
+    }
+  };
+
+  const up = () => {
+    if (currentShape) {
+      setShapes((s) => [...s, { ...currentShape, id: crypto.randomUUID() }]);
+    }
+    setCurrentShape(null);
     setIsDrawing(false);
     penPoints.current = [];
-    startPoint.current = null;
-    return;
-  }
-
-  // ✅ LINE / RECT need startPoint
-  const start = startPoint.current;
-  if (!start) return;
-
-  const end = getPos(e);
-
-  if (tool === "line") {
-    setShapes((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        type: "line",
-        x1: start.x,
-        y1: start.y,
-        x2: end.x,
-        y2: end.y,
-        stroke: STROKE_COLOR,
-        strokeWidth: 2,
-      },
-    ]);
-  }
-
-  if (tool === "rect") {
-    setShapes((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        type: "rect",
-        x: start.x,
-        y: start.y,
-        width: end.x - start.x,
-        height: end.y - start.y,
-        stroke: STROKE_COLOR,
-        strokeWidth: 2,
-      },
-    ]);
-  }
-
-  setIsDrawing(false);
-  startPoint.current = null;
-};
-
+    start.current = null;
+  };
 
   return (
-    <div className="h-screen flex flex-col bg-slate-900">
+    <div className="h-screen bg-slate-950">
       <Toolbar
         tool={tool}
         setTool={setTool}
-        undo={() => setShapes((prev) => prev.slice(0, -1))}
+        undo={() => setShapes((s) => s.slice(0, -1))}
         clear={() => setShapes([])}
       />
 
       <canvas
         ref={canvasRef}
-        width={canvasSize.width}
-        height={canvasSize.height}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-
-        className="flex-1 cursor-crosshair"
+        onMouseDown={down}
+        onMouseMove={move}
+        onMouseUp={up}
+        onMouseLeave={up}
+        className="w-full h-full cursor-crosshair"
       />
     </div>
   );

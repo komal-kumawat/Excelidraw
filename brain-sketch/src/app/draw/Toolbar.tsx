@@ -18,7 +18,7 @@ export default function Toolbar({
 }: Props) {
   return (
     <div className="flex gap-2 p-3 bg-slate-900 border-b border-slate-700">
-      {(["pen", "line", "rect"] as Tool[]).map((t) => (
+      {(["pen", "line", "rect" , "arrow" , "circle"] as Tool[]).map((t) => (
         <button
           key={t}
           onClick={() => setTool(t)}

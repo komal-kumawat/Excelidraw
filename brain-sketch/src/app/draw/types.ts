@@ -52,7 +52,7 @@ export interface CircleShape extends BaseShape {
   type: "circle";
   cx: number;
   cy: number;
-  radius: number;
+  r: number;
 }
 
 /* ---------------- TRIANGLE ---------------- */
