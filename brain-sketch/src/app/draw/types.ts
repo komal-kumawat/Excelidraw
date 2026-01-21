@@ -19,7 +19,27 @@ export interface BaseShape {
   stroke: string;
   strokeWidth: number;
 }
+type StrokePattern = "solid" | "dashed" | "longDashed";
 
+export type CanvasColor =
+  | "black"
+  | "darkBlue"
+  | "white"
+  | "offWhite"
+  | "paper"
+  | "lightBlue";
+export type CanvasTexture = "plain" | "dotted" | "grid" | "smallGrid" | "cross";
+
+export interface DrawingLine {
+  points: Point[];
+  color: string;
+  width: number;
+  shape?: Tool;
+  svgData?: string;
+  svgSize?: { width: number; height: number };
+  strokePattern?: StrokePattern;
+  fillColor?: string;
+}
 /* ---------------- PEN ---------------- */
 
 export interface PenShape extends BaseShape {
